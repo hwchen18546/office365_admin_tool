@@ -12,27 +12,31 @@ Function Login {
                 Welcome;
                 Import-Module MsOnline;
                 Write-Host "step 1" -ForegroundColor yellow;
-                Write-Host " Enter Office365 account : " -nonewline
+                Write-Host " Enter Office365 account : " -nonewline;
                 $global:adm_account = Read-Host ;
                 Write-Host "--------------------------------------------------"-ForegroundColor yellow;
 
                 Write-Host "step 2" -ForegroundColor yellow;
                 Write-Host " Please enter your password : " -nonewline;
-                $global:adm_password_plain = Read-Host -assecurestring;
-                $global:adm_password_plain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($adm_password_plain));
+				
+				# Login password no encrypt 
+				$global:adm_password_plain = Read-Host;
+                $global:adm_password_encrypt = convertto-securestring  $adm_password_plain -asplaintext -force;
 
-                $global:adm_password_encrypt = convertto-securestring  $adm_password_plain -asplaintext -force
-
+				# Login password encrypt, but can't ctrl+V
+                #$global:adm_password_encrypt = Read-Host -assecurestring;
+                #$global:adm_password_plain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($adm_password_encrypt));				
+				
                 $global:adm_cred=New-Object System.Management.Automation.PSCredential($adm_account,$adm_password_encrypt);
                 $report = Connect-MsolService -credential $adm_cred 2>&1;
                 $err = $report | ?{$_.gettype().Name -eq "ErrorRecord"}
 				                if($err){
-					                Write-Host " $report" -background Black -foreground Red	
+					                Write-Host " $report" -background Black -foreground Red;	
 					                Read-Host;
                                     Clear;
 				                }
 				                else{
-					                Write-Host "Login Success!" -background Black -foreground Magenta	
+					                Write-Host "Login Success!" -background Black -foreground Magenta;	
                                     Write-Host "--------------------------------------------------"-ForegroundColor yellow;
 					                Break;
 				                }
@@ -41,18 +45,18 @@ Function Login {
 
 Function DirectLogin {
         Welcome;		
-        Import-Module MsOnline
-        $global:adm_account = "test@domain.com"
-        $global:admpassword_plain = "1234567890"
-        $global:admpassword_encrypt = convertto-securestring  $admpassword_plain -asplaintext -force
-        $global:adm_cred=New-Object System.Management.Automation.PSCredential($adm_account,$admpassword_encrypt)
-        Connect-MsolService -credential $adm_cred
+        Import-Module MsOnline;
+        $global:adm_account = "test@domain.com";
+        $global:admpassword_plain = "1234567890";
+        $global:admpassword_encrypt = convertto-securestring  $admpassword_plain -asplaintext -force;
+        $global:adm_cred=New-Object System.Management.Automation.PSCredential($adm_account,$admpassword_encrypt);
+        Connect-MsolService -credential $adm_cred;
 }
 
 #1
 Function Check_users_status{
 
-			Get-MsolUser -All | Out-GridView -Title "Choose the User account you want to check" -PassThru | fl  #(format list) 
+			Get-MsolUser -All | Out-GridView -Title "Choose the User account you want to check" -PassThru | fl  #(format list) ;
 }
 
 #2
@@ -67,15 +71,15 @@ Function Create_user{
         $LastName = Read-Host "LastName ";
         $DisplayName = Read-Host "DisplayName ";
         $report = New-MsolUser -FirstName $FirstName -LastName $LastName -UserPrincipalName $UserPrincipalName -DisplayName $DisplayName -Password $NewPassword -ForceChangePassword $false 2>&1;
-        $err = $report | ?{$_.gettype().Name -eq "ErrorRecord"}
+        $err = $report | ?{$_.gettype().Name -eq "ErrorRecord"};
 		if($err){
             Write-Host $err -BackgroundColor Black -ForegroundColor Red;
         }
         else{
-            Set-MsolUser -UserPrincipalName $UserPrincipalName -UsageLocation TW
-            Get-MsolAccountSku |ft AccountSkuId,ActiveUnits,ConsumedUnits
-            Write-Host "Choose the Licenses to Active " -nonewline
-            Write-Host "1.STUDENT 2.FACULTY : " -nonewline -foreground Red
+            Set-MsolUser -UserPrincipalName $UserPrincipalName -UsageLocation TW;
+            Get-MsolAccountSku |ft AccountSkuId,ActiveUnits,ConsumedUnits;
+            Write-Host "Choose the Licenses to Active " -nonewline;
+            Write-Host "1.STUDENT 2.FACULTY : " -nonewline -foreground Red;
             $Licenses_no = Read-Host ;
             if($Licenses_no -eq "1"){
                     $ServicePlans = Get-MsolAccountSku | Where {$_.SkuPartNumber -eq "ENTERPRISEPACK_STUDENT"};
@@ -84,7 +88,7 @@ Function Create_user{
                      $ServicePlans = Get-MsolAccountSku | Where {$_.SkuPartNumber -eq "ENTERPRISEPACK_FACULTY"} ;                
             }
             ForEach ($item in $ServicePlans){                         #ForEach ($<each item> in $<group object>)
-                     Set-MsolUserLicense -UserPrincipalName $UserPrincipalName -AddLicenses $item.AccountSkuId
+                     Set-MsolUserLicense -UserPrincipalName $UserPrincipalName -AddLicenses $item.AccountSkuId;
             }
             Write-Host "Create User Done!" -BackgroundColor Black -ForegroundColor Green;
         }
@@ -95,23 +99,28 @@ Function Create_multi_user{
     
     Get-MsolUser -UserPrincipalName $adm_account | Select-Object UserPrincipalName,Password,FirstName,LastName,DisplayName | Export-Csv sample_new_users.csv;
     $CurrentPath = $(Get-Location).ToString();
-    Write-Host "We create a reference sample at $CurrentPath\sample_new_users.csv"  -background Black -foreground Magenta
+    Write-Host "We create a reference sample at $CurrentPath\sample_new_users.csv"  -background Black -foreground Magenta;
+    Write-Host "Do you want to open it?(Y/N): " -NoNewline;
+    $open_CSV = Read-Host;
+    if($open_CSV -ne "N" -or $open_CSV -ne "n"){
+        Invoke-Item sample_new_users.csv;
+    }
     while(1){
         $Importfile = Read-Host "Please enter the csv filename ";
         $report =  Get-Content -path $CurrentPath"\"$Importfile  2>&1;
         $err = $report | ?{$_.gettype().Name -eq "ErrorRecord"}
 		if($err){
-			Write-Host "Can't open file." -background Black -foreground Red	
+			Write-Host "Can't open file." -background Black -foreground Red	;
 		}
 		else{
-            Write-Host "Reading $Importfile ..." -background Black -foreground Magenta	
+            Write-Host "Reading $Importfile ..." -background Black -foreground Magenta	;
             Break;
 		}
     }
 
-    Get-MsolAccountSku |ft AccountSkuId,ActiveUnits,ConsumedUnits
-    Write-Host "Choose the Licenses to Active " -nonewline
-    Write-Host "1.STUDENT 2.FACULTY : " -nonewline -foreground Red
+    Get-MsolAccountSku |ft AccountSkuId,ActiveUnits,ConsumedUnits;
+    Write-Host "Choose the Licenses to Active " -nonewline;
+    Write-Host "1.STUDENT 2.FACULTY : " -nonewline -foreground Red;
     $Licenses_no = Read-Host ;
     if($Licenses_no -eq "1"){
         $ServicePlans = Get-MsolAccountSku | Where {$_.SkuPartNumber -eq "ENTERPRISEPACK_STUDENT"};
@@ -131,9 +140,9 @@ Function Create_multi_user{
         }
         else{
             $UserPrincipalName = $_.UserPrincipalName;
-            Set-MsolUser -UserPrincipalName $_.UserPrincipalName -PasswordNeverExpires $true
-            Set-MsolUser -UserPrincipalName $UserPrincipalName -UsageLocation TW
-            Set-MsolUserLicense -UserPrincipalName $UserPrincipalName -AddLicenses $Licenses
+            Set-MsolUser -UserPrincipalName $_.UserPrincipalName -PasswordNeverExpires $true;
+            Set-MsolUser -UserPrincipalName $UserPrincipalName -UsageLocation TW;
+            Set-MsolUserLicense -UserPrincipalName $UserPrincipalName -AddLicenses $Licenses;
             Write-Host "Create $UserPrincipalName Success" -BackgroundColor Black -ForegroundColor Green;
         }
     
@@ -153,39 +162,44 @@ Function Remove_user{
 Function Recover_user{
 
          Get-MsolUser -ReturnDeletedUsers | Out-GridView -Title "Choose the users you want to Recover" -PassThru | ForEach-Object {Restore-MsolUser -UserPrincipalName  $_.UserPrincipalName -AutoReconcileProxyConflicts}    
-         Write-Host "Recover User Done!" -BackgroundColor Black -ForegroundColor Green
+         Write-Host "Recover User Done!" -BackgroundColor Black -ForegroundColor Green;
 }
 
 #6
 Function Change_Password{
-        Write-Host "1. Table mode 2. csv mode : " -NoNewline -ForegroundColor Yellow ;
-        $choose = Read-Host
+        Write-Host "1. Table mode 2. CSV mode : " -NoNewline -ForegroundColor Yellow ;
+        $choose = Read-Host;
         if($choose -eq 1){
                 $NewPass = Read-Host "Enter New Password "
                 Get-MsolUser -all | Out-GridView -Title "Choose the users you want to Change Password" -PassThru | ForEach-Object {
-                        Set-MsolUserPassword -UserPrincipalName $_.UserPrincipalName -NewPassword $NewPass -ForceChangePassword $false
-                        Set-MsolUser -UserPrincipalName $_.UserPrincipalName -PasswordNeverExpires $true
+                        Set-MsolUserPassword -UserPrincipalName $_.UserPrincipalName -NewPassword $NewPass -ForceChangePassword $false;
+                        Set-MsolUser -UserPrincipalName $_.UserPrincipalName -PasswordNeverExpires $true;
                 }
-                Write-Host "Change Password Done!" -BackgroundColor Black -ForegroundColor Green
+                Write-Host "Change Password Done!" -BackgroundColor Black -ForegroundColor Green;
         }
         elseif ($choose -eq 2){
-                Get-MsolUser -UserPrincipalName $adm_account | Select-Object UserPrincipalName,NewPassword | export-csv sample_change_pwd.csv -encoding "utf8"
+                Get-MsolUser -UserPrincipalName $adm_account | Select-Object UserPrincipalName,NewPassword | export-csv sample_change_pwd.csv -encoding "utf8";
                 $CurrentPath = $(Get-Location).ToString();
-                Write-Host "We create a reference sample at $CurrentPath\sample_change_pwd.csv"  -background Black -foreground Magenta
+                Write-Host "We create a reference sample at $CurrentPath\sample_change_pwd.csv"  -background Black -foreground Magenta;
+                Write-Host "Do you want to open it?(Y/N): " -NoNewline;
+                $open_CSV = Read-Host;
+                if($open_CSV -ne "N" -or $open_CSV -ne "n"){
+                    Invoke-Item sample_change_pwd.csv;
+                }
                 while(1){
-                        $Importfile = Read-Host "Please enter the csv filename ";
+                        $Importfile = Read-Host "Please enter the CSV filename ";
                         $report =  Get-Content -path $CurrentPath"\"$Importfile  2>&1;
                         $err = $report | ?{$_.gettype().Name -eq "ErrorRecord"}
 			            if($err){
-					               Write-Host "Can't open file." -background Black -foreground Red	
+					               Write-Host "Can't open file." -background Black -foreground Red	;
 			            }
 			            else{
-                                   Write-Host "Reading $Importfile ..." -background Black -foreground Magenta	
+                                   Write-Host "Reading $Importfile ..." -background Black -foreground Magenta	;
                                    Import-Csv $Importfile | ForEach-Object {
-                                            Set-MsolUserPassword ¡VUserPrincipalName $_.UserPrincipalName -NewPassword $_.NewPassword ¡VForceChangePassword $false
-                                            Set-MsolUser -UserPrincipalName $_.UserPrincipalName -PasswordNeverExpires $true
+                                            Set-MsolUserPassword ¡VUserPrincipalName $_.UserPrincipalName -NewPassword $_.NewPassword ¡VForceChangePassword $false;
+                                            Set-MsolUser -UserPrincipalName $_.UserPrincipalName -PasswordNeverExpires $true;
                                    }
-                                   Write-Host "Change Password Done!" -BackgroundColor Black -ForegroundColor Green
+                                   Write-Host "Change Password Done!" -BackgroundColor Black -ForegroundColor Green;
                                    Break;
 			            }
                 }
@@ -202,45 +216,48 @@ Function Send_mail{
         $smtp.Credentials = New-Object System.Net.NetworkCredential($adm_account, $admpassword_plain);
 
         $From = $adm_account;
-        Write-Host "From : $From"
+        Write-Host "From : $From";
         $To = Read-Host "To ";
         $subject = Read-Host "Subject ";
         $body = Read-Host "Content  ";
         $smtp.Send($From, $To, $subject, $body); 
+
 }
 
 #8
 Function See_mail_log{
 
-        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://ps.outlook.com/powershell/ -Credential $adm_cred -Authentication Basic ¡VAllowRedirection
-        Import-PSSession $Session
-        Get-StaleMailboxReport | Out-GridView -Title "Main Log"	
-
+        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://ps.outlook.com/powershell/ -Credential $adm_cred -Authentication Basic ¡VAllowRedirection;
+        Import-PSSession $Session;
+		
+        Get-StaleMailboxReport | Out-GridView -Title "StaleMailboxReport";	
+        #Get-StaleMailboxDetailReport |  Out-GridView -Title "StaleMailboxDetailReport";
+        Get-PSSession | Remove-PSSession;
 }
 
 
 <# Main #>
 	
-		Login
+		Login;
         #DirectLogin;
 
 		while (1) {
 				welcome;
-				$ident = Get-MsolUser -UserPrincipalName $adm_account
-				Write-Host "$ident "   -BackgroundColor Black -ForegroundColor Magenta
-				Write-Host "Login : $adm_account "   -BackgroundColor Black  -ForegroundColor Magenta
-				Write-Host "  1.Check users status"  -foreground Yellow 
-				Write-Host "  2.Create user"-foreground Yellow
-                Write-Host "  3.Create Muti-user"-foreground Yellow
-				Write-Host "  4.Remove user"-foreground Yellow
-				Write-Host "  5.Recover user"-foreground Yellow 
-				Write-Host "  6.Change password" -foreground Yellow 
-				Write-Host "  7.Send mail"-foreground Yellow 
-				Write-Host "  8.See mail log"-foreground Yellow  
-				Write-Host "  9.Logout" -foreground Yellow
-				Write-Host "  0.Exit" -foreground Yellow
+				$ident = Get-MsolUser -UserPrincipalName $adm_account ;
+				Write-Host "$ident "   -BackgroundColor Black -ForegroundColor Magenta ;
+				Write-Host "Login : $adm_account "   -BackgroundColor Black  -ForegroundColor Magenta ;
+				Write-Host "  1.Check Users Status"  -foreground Yellow  ;
+				Write-Host "  2.Create User"-foreground Yellow ;
+                Write-Host "  3.Create Muti User by CSV"-foreground Yellow ;
+				Write-Host "  4.Remove User"-foreground Yellow ;
+				Write-Host "  5.Recover User"-foreground Yellow  ;
+				Write-Host "  6.Change Password" -foreground Yellow ;
+				Write-Host "  7.Send Mail"-foreground Yellow ;
+				Write-Host "  8.See Mailbox Report"-foreground Yellow ;
+				Write-Host "  9.Logout" -foreground Yellow ;
+				Write-Host "  0.Exit" -foreground Yellow ;
 				 
-				$choose = Read-Host "Please choose the number "
+				$choose = Read-Host "Please choose the number " ;
 
 				switch ($choose) 
 				{ 
@@ -253,7 +270,7 @@ Function See_mail_log{
 						7{ Send_mail }
 						8{ See_mail_log }
 						9{ Remove-Module MSOnline;
-							Login 
+							Login;
 						}
 						default { ; }
 				}
@@ -265,6 +282,6 @@ Function See_mail_log{
                         break;
                 } 
 		}
-		Remove-Module MSOnline
+		Remove-Module MSOnline ;
 
 <# End Main #>
